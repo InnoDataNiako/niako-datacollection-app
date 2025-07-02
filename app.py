@@ -1,3 +1,5 @@
+# Partie 1 : j'importe les bibliothèques nécessaires
+
 import streamlit as st
 import os
 import pandas as pd
@@ -8,9 +10,6 @@ import plotly.express as px
 import streamlit as st
 import re
 import time
-import requests
-from urllib.parse import urljoin
-from bs4 import BeautifulSoup
 
 # Partie 2 : Configuration de la page et du style
 st.set_page_config(page_title="Expat-Dakar", layout="wide")
@@ -106,11 +105,15 @@ elif menu == "📊 Dashboard Données Nettoyées":
 elif menu == "📝 Formulaire d'évaluation":
     st.markdown('<div class="form-title">📝 Formulaire d\'Évaluation</div>', unsafe_allow_html=True)
 
+import unicodedata
+from datetime import datetime
+import os
 
 # Initialiser la mémoire de session pour conserver le fichier après scraping
 if "scraped_file" not in st.session_state:
     st.session_state.scraped_file = None
 
+# Partie 7 : si le menu sélectionné est "Scraper avec Selenium"
 # Partie 7 : Scraping avec BeautifulSoup
 if menu == "🔄 Scraper avec Selenium":
     st.markdown("""
@@ -163,7 +166,7 @@ if menu == "🔄 Scraper avec Selenium":
                 "url": "https://www.expat-dakar.com/cuisinieres-fours",
                 "column_map": {
                     "V1": "V1_détails",
-                    "V2": "V2_etat_cuisinieres Alfa",
+                    "V2": "V2_etat_cuisinieres_fours",
                     "V3": "V3_adresse",
                     "V4": "V4_prix",
                     "V5": "V5_image_lien"
@@ -198,57 +201,6 @@ if menu == "🔄 Scraper avec Selenium":
         )
         
         st.markdown('</div>', unsafe_allow_html=True)
-
-    # Fonction pour nettoyer le texte
-    def clean_text(text):
-        return ' '.join(text.split()) if text else ''
-
-    # Fonction pour scraper une catégorie
-    def scrape_category(url, file_path, column_map, max_pages):
-        selectors = {
-            "details": "div.listing-card__header__title",
-            "etat": "span.listing-card__header__tags__item",
-            "adresse": "div.listing-card__header__location",
-            "prix": "span.listing-card__price__value",
-            "image_lien": "img.listing-card__image__resource"
-        }
-        
-        data = []
-        for page_num in range(1, max_pages + 1):
-            try:
-                response = requests.get(f"{url}?page={page_num}", timeout=10)
-                response.raise_for_status()
-                soup = BeautifulSoup(response.content, 'html.parser')
-                
-                listings = soup.select("div.listing-card")
-                if not listings:
-                    break
-                
-                for listing in listings:
-                    details = clean_text(listing.select_one(selectors["details"]).get_text(strip=True) if listing.select_one(selectors["details"]) else '')
-                    etat = clean_text(listing.select_one(selectors["etat"]).get_text(strip=True) if listing.select_one(selectors["etat"]) else '')
-                    adresse = clean_text(listing.select_one(selectors["adresse"]).get_text(strip=True) if listing.select_one(selectors["adresse"]) else '')
-                    prix = clean_text(listing.select_one(selectors["prix"]).get_text(strip=True) if listing.select_one(selectors["prix"]) else '')
-                    image_lien = urljoin(url, listing.select_one(selectors["image_lien"])['src'] if listing.select_one(selectors["image_lien"]) and 'src' in listing.select_one(selectors["image_lien"]).attrs else '')
-                    
-                    data.append({
-                        column_map["V1"]: details,
-                        column_map["V2"]: etat,
-                        column_map["V3"]: adresse,
-                        column_map["V4"]: prix,
-                        column_map["V5"]: image_lien
-                    })
-                
-                time.sleep(2)  # Pause pour éviter de surcharger le serveur
-                
-            except requests.RequestException as e:
-                st.error(f"Erreur lors de la requête pour page {page_num}: {e}")
-                break
-        
-        df = pd.DataFrame(data)
-        if not df.empty:
-            df.to_csv(file_path, index=False, encoding='utf-8')
-        return df
 
     # Partie 9 : Bouton pour lancer le scraping
     if st.button("🚀 Lancer le scraping", key="scrape_button"):
@@ -301,7 +253,7 @@ if menu == "🔄 Scraper avec Selenium":
                 )
         else:
             st.error("Fichier CSV introuvable")
-
+            
 # Partie 10 : si le menu sélectionné est "Télécharger WebScraper (.xlsx)"
 elif menu == "📥 Télécharger WebScraper (.xlsx)":
     st.markdown("""

@@ -5,6 +5,10 @@ import pandas as pd
 import time
 from urllib.parse import urljoin
 import unicodedata
+import os
+import random
+import json
+from fake_useragent import UserAgent
 
 # Liste des URLs avec leurs catégories
 urls = [
@@ -30,76 +34,90 @@ all_data = []
 def clean_text(text):
     return ' '.join(text.split()) if text else ''
 
-# Fonction pour scraper une page
-def scrape_category(url, category, etat_label, page_num):
+
+def scrape_category(base_url, csv_filename, column_map, max_pages=20):
+    listings_data = []
+    
+    # Configuration des headers avec User-Agent aléatoire
+    ua = UserAgent()
     headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-    "Accept-Language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Connection": "keep-alive",
-    "Upgrade-Insecure-Requests": "1",
-    "Referer": url,
-}
-    
-    try:
-        response = requests.get(f"{url}?page={page_num}", headers=headers, timeout=10)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.content, 'html.parser')
-                
-        # Trouver toutes les cartes de produits
-        listings = soup.select("div.listing-card")
-        
-        for listing in listings:
-            # Extraction des données avec gestion des erreurs
-            details = clean_text(listing.select_one(selectors["details"]).get_text(strip=True) if listing.select_one(selectors["details"]) else '')
-            etat = clean_text(listing.select_one(selectors["etat"]).get_text(strip=True) if listing.select_one(selectors["etat"]) else '')
-            adresse = clean_text(listing.select_one(selectors["adresse"]).get_text(strip=True) if listing.select_one(selectors["adresse"]) else '')
-            prix = clean_text(listing.select_one(selectors["prix"]).get_text(strip=True) if listing.select_one(selectors["prix"]) else '')
-            image_lien = urljoin(url, listing.select_one(selectors["image_lien"])['src'] if listing.select_one(selectors["image_lien"]) and 'src' in listing.select_one(selectors["image_lien"]).attrs else '')
+        "User-Agent": ua.random,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "fr-FR,fr;q=0.8,en-US;q=0.5,en;q=0.3",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Referer": "https://www.google.com/",
+        "DNT": "1"
+    }
+
+    session = requests.Session()
+    session.headers.update(headers)
+
+    for page in range(1, max_pages + 1):
+        try:
+            # Délai aléatoire plus long avec variation
+            delay = random.uniform(3.0, 7.0)
+            time.sleep(delay)
             
-            # Ajouter les données à la liste
-            all_data.append({
-                "Catégorie": category,
-                "Détails": details,
-                etat_label: etat,
-                "Adresse": adresse,
-                "Prix": prix,
-                "Image_Lien": image_lien
-            })
-        
-        # Vérifier s'il y a une page suivante
-        next_page = soup.select_one("a[rel='next']")
-        return bool(next_page)
-    
-    except requests.RequestException as e:
-        print(f"Erreur lors de la requête pour {url}?page={page_num}: {e}")
-        return False
+            # Rotation des headers à chaque requête
+            session.headers.update({"User-Agent": ua.random})
+            
+            url = f"{base_url}?page={page}" if page > 1 else base_url
+            print(f"Tentative de scraping: {url}")
+            
+            # Ajout de paramètres aléatoires pour éviter le cache
+            params = {"_": str(int(time.time()))} if page > 1 else {}
+            
+            resp = session.get(url, params=params, timeout=30)
+            
+            # Vérification du statut
+            if resp.status_code == 403:
+                print("Accès refusé (403 Forbidden) - Essayez plus tard ou changez d'IP")
+                break
+            resp.raise_for_status()
+            
+            # Vérification contenu minimal
+            if len(resp.text) < 2000:
+                print(f"Contenu insuffisant page {page}")
+                continue
+                
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            
+            # Extraction avec les sélecteurs exacts fournis
+            cards = soup.select("div.listing-card__inner")
+            print(f"Nombre d'annonces trouvées: {len(cards)}")
+            
+            for card in cards:
+                try:
+                    data = {
+                        column_map["V1"]: clean_text(card.select_one('div.listing-card__header__title').text) if card.select_one('div.listing-card__header__title') else "N/A",
+                        column_map["V2"]: clean_text(card.select_one('span.listing-card__header__tags__item').text) if card.select_one('span.listing-card__header__tags__item') else "N/A",
+                        column_map["V3"]: clean_text(card.select_one('div.listing-card__header__location').text) if card.select_one('div.listing-card__header__location') else "N/A",
+                        column_map["V4"]: clean_text(card.select_one('span.listing-card__price__value').text) if card.select_one('span.listing-card__price__value') else "N/A",
+                        column_map["V5"]: card.select_one('img.listing-card__image__resource')['src'] if card.select_one('img.listing-card__image__resource') else "N/A",
+                        "Page": page
+                    }
+                    listings_data.append(data)
+                    
+                except Exception as e:
+                    print(f"Erreur sur une annonce: {str(e)}")
+                    continue
+                    
+        except requests.exceptions.RequestException as e:
+            print(f"Erreur réseau page {page}: {str(e)}")
+            continue
+        except Exception as e:
+            print(f"Erreur inattendue page {page}: {str(e)}")
+            continue
 
-# Parcourir chaque URL
-for item in urls:
-    url = item["url"]
-    category = item["category"]
-    etat_label = item["etat_label"]
-    page_num = 1
+    # Création du DataFrame et sauvegarde
+    df = pd.DataFrame(listings_data)
+    if not df.empty:
+        try:
+            os.makedirs(os.path.dirname(csv_filename) or '.', exist_ok=True)
+            df.to_csv(csv_filename, index=False, encoding='utf-8-sig')
+            print(f"Sauvegarde réussie dans {csv_filename}")
+        except Exception as e:
+            print(f"Erreur sauvegarde CSV: {str(e)}")
     
-    print(f"Scraping {category}...")
-    while True:
-        has_next = scrape_category(url, category, etat_label, page_num)
-        print(f"Page {page_num} scraped for {category}")
-        page_num += 1
-        if not has_next:
-            break
-        time.sleep(2)  # Pause pour éviter de surcharger le serveur
-    
-    # Sauvegarder les données après chaque catégorie
-    if all_data:
-        df = pd.DataFrame(all_data)
-        df.to_csv(f"{category.lower().replace(' ', '_')}_data.csv", index=False, encoding='utf-8')
-        print(f"Données sauvegardées pour {category} dans {category.lower().replace(' ', '_')}_data.csv")
-
-# Sauvegarder toutes les données dans un fichier final
-if all_data:
-    final_df = pd.DataFrame(all_data)
-    final_df.to_csv("all_products_data.csv", index=False, encoding='utf-8')
-    print("Toutes les données ont été sauvegardées dans all_products_data.csv")
+    return df
