@@ -13,6 +13,7 @@ import time
 
 # Partie 2 : Configuration de la page et du style
 st.set_page_config(page_title="Expat-Dakar", layout="wide")
+# Et ajoutez ceci pour désactiver le timeout
 # Partie 3 : CSS pour le style de la sidebar et des cartes
 st.markdown("""
     <style>
@@ -104,7 +105,15 @@ elif menu == "📊 Dashboard Données Nettoyées":
 elif menu == "📝 Formulaire d'évaluation":
     st.markdown('<div class="form-title">📝 Formulaire d\'Évaluation</div>', unsafe_allow_html=True)
 
-# Partie 7 : si le selectionne est scraper avec BeautifulSoup (requests)
+import unicodedata
+from datetime import datetime
+import os
+
+# Initialiser la mémoire de session pour conserver le fichier après scraping
+if "scraped_file" not in st.session_state:
+    st.session_state.scraped_file = None
+
+# Partie 7 : si le menu sélectionné est "Scraper avec Selenium"
 if menu == "🔄 Scraper avec Selenium":
     st.markdown("""
     <div class="scraping-card" style="margin-top: 20px;">
@@ -114,10 +123,9 @@ if menu == "🔄 Scraper avec Selenium":
         </p>
     </div>
     """, unsafe_allow_html=True)
-    # Partie 8 : Sélecteurs pour choisir la catégorie et le nombre de pages à scraper
+
+    # Partie 8 : Sélecteurs
     with st.container():
-        st.markdown('<div class="scraping-card">', unsafe_allow_html=True)
-        
         categories = {
             "Réfrigérateurs": {
                 "url": "https://www.expat-dakar.com/refrigerateurs-congelateurs",
@@ -164,68 +172,73 @@ if menu == "🔄 Scraper avec Selenium":
                 "icon": "🧺"
             }
         }
-        
-        # Afficher les sélecteurs dans une carte stylisée
+
         category = st.selectbox(
             "Choisir une catégorie", 
             list(categories.keys()),
             format_func=lambda x: f"{categories[x]['icon']} {x}"
         )
-        
+
         nb_pages = st.number_input(
             "Nombre de pages à scraper", 
             min_value=1, 
             max_value=283, 
-            value=2,
-            help="Le nombre maximum de pages à parcourir pour extraire les données."
+            value=2
         )
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-    # Partie 9 : Bouton pour lancer le scraping
-    # ...existing code...
-if st.button("🚀 Lancer le scraping", key="scrape_button"):
-    with st.spinner("""
-        🔄 Scraping en cours... Cette opération peut prendre quelques minutes.
-    """):
-        try:
-            def slugify(text):
-                text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
-                return text.lower().replace(" ", "_").replace("&", "et")
 
-            filename_base = slugify(category)
-            csv_filename = f"{filename_base}_{nb_pages}-pages_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
-            scraping_dir = os.path.join(os.path.dirname(__file__), "scraping")
-            file_path = os.path.join(scraping_dir, csv_filename)
+    # Partie 9 : Lancer le scraping
+    if st.button("🚀 Lancer le scraping", key="scrape_button"):
+        with st.spinner("🔄 Scraping en cours..."):
+            try:
+                def slugify(text):
+                    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+                    return text.lower().replace(" ", "_").replace("&", "et")
 
-            config = categories[category]
-            df = scrape_category(config["url"], file_path, config["column_map"], max_pages=nb_pages)
+                # Génération des chemins
+                filename_base = slugify(category)
+                csv_filename = f"{filename_base}_{nb_pages}-pages_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+                scraping_dir = os.path.join(os.path.dirname(__file__), "scraping")
+                file_path = os.path.join(scraping_dir, csv_filename)
 
-            if df.empty:
-                st.error("Aucune donnée n'a été extraite. Vérifiez la page ou réessayez avec un autre nombre de pages.")
-            else:
-                # Affichage du succès dans une carte stylisée
-                st.markdown(f"""
-                <div class="scraping-card stSuccess">
-                    <div class="section-title">✅ Scraping terminé avec succès</div>
-                    <p>Données extraites pour la catégorie <strong>{category}</strong> sur <strong>{nb_pages}</strong> pages.</p>
-                    <p>Fichier généré : <code>{file_path}</code></p>
-                </div>
-                """, unsafe_allow_html=True)
+                config = categories[category]
+                df = scrape_category(config["url"], file_path, config["column_map"], max_pages=nb_pages)
 
-                # Affiche un extrait du DataFrame
-                st.dataframe(df.head(10), use_container_width=True)
+                if df.empty:
+                    st.error("❌ Aucune donnée extraite. Vérifiez l'URL ou augmentez le nombre de pages.")
+                else:
+                    st.success("✅ Scraping terminé avec succès !")
+                    st.session_state.scraped_file = {
+                        "path": file_path,
+                        "name": csv_filename
+                    }
 
-                # Bouton de téléchargement
-                with open(file_path, "rb") as f:
-                    st.download_button(
-                        label="📥 Télécharger le fichier CSV",
-                        data=f.read(),
-                        file_name=csv_filename,
-                        mime="text/csv",
-                        key="download_csv"
-                    )
-        except Exception as e:
-            st.error(f"❌ Une erreur s'est produite lors du scraping : {str(e)}")
+                    st.markdown(f"""
+                    <div class="scraping-card stSuccess">
+                        <p><strong>{len(df)}</strong> annonces extraites pour la catégorie <strong>{category}</strong>.</p>
+                        <p>Fichier généré : <code>{csv_filename}</code></p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    st.dataframe(df.head(10), use_container_width=True)
+
+            except Exception as e:
+                st.error(f"❌ Une erreur s'est produite : {e}")
+
+    # Affichage du bouton de téléchargement s’il existe
+    if st.session_state.scraped_file:
+        file_path = st.session_state.scraped_file["path"]
+        file_name = st.session_state.scraped_file["name"]
+        if os.path.exists(file_path):
+            with open(file_path, "rb") as f:
+                st.download_button(
+                    label="📥 Télécharger le fichier CSV",
+                    data=f,
+                    file_name=file_name,
+                    mime="text/csv"
+                )
+
+
+
 # Partie 10 : si le menu sélectionné est "Télécharger WebScraper (.xlsx)"
 elif menu == "📥 Télécharger WebScraper (.xlsx)":
     st.markdown("""
