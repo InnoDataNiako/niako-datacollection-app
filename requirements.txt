@@ -6,3 +6,4 @@ openpyxl
 unidecode
 matplotlib
 plotly
+fake_useragent
