@@ -1,55 +1,95 @@
-import os
+
 import requests
-import pandas as pd
 from bs4 import BeautifulSoup
+import pandas as pd
 import time
-import streamlit as st
-from random import uniform
-# Scraper pour une catégorie spécifique
-# Utilise BeautifulSoup pour extraire les données des cartes de listing
-def scrape_category(base_url, csv_filename, column_map, max_pages=20):
-    listings_data = []
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
-        "Accept-Language": "fr-FR,fr;q=0.9",
-        "Referer": "https://www.google.com/"
-    }
+from urllib.parse import urljoin
+import unicodedata
 
-    for page in range(1, max_pages + 1):
-        try:
-            # Délai aléatoire avec progression
-            time.sleep(max(1, uniform(1.0, 3.0)))
-            
-            url = f"{base_url}?page={page}" if page > 1 else base_url
-            resp = requests.get(url, headers=headers, timeout=20)
-            resp.raise_for_status()
-            
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            cards = soup.find_all("div", class_="listing-card__inner")
-            
-            if not cards and page == 1:
-                st.warning("Aucune donnée trouvée - vérifiez les sélecteurs")
-                return pd.DataFrame()
-                
-            for card in cards:
-                try:
-                    data = {
-                        column_map["V1"]: card.find("div", class_="listing-card__header__title").get_text(strip=True) if card.find("div", class_="listing-card__header__title") else "N/A",
-                        column_map["V2"]: card.select_one(".listing-card__header__tags__item--condition").get_text(strip=True) if card.select_one(".listing-card__header__tags__item--condition") else "N/A",
-                        column_map["V3"]: card.find("div", class_="listing-card__header__location").get_text(strip=True) if card.find("div", class_="listing-card__header__location") else "N/A",
-                        column_map["V4"]: (card.find("div", class_="listing-card__price__deal") or card.find("div", class_="listing-card__price__value")).get_text(strip=True) if (card.find("div", class_="listing-card__price__deal") or card.find("div", class_="listing-card__price__value")) else "N/A",
-                        column_map["V5"]: card.find("img", class_="listing-card__image__resource")["src"] if card.find("img", class_="listing-card__image__resource") and card.find("img", class_="listing-card__image__resource").has_attr("src") else "N/A",
-                        "Page": page
-                    }
-                    listings_data.append(data)
-                except Exception as e:
-                    continue
-                    
-        except Exception as e:
-            continue
+# Liste des URLs avec leurs catégories
+urls = [
+    {"url": "https://www.expat-dakar.com/refrigerateurs-congelateurs", "category": "Réfrigérateurs-Congélateurs", "etat_label": "État Frigo-Cong"},
+    {"url": "https://www.expat-dakar.com/climatisation", "category": "Climatisation", "etat_label": "État Clim"},
+    {"url": "https://www.expat-dakar.com/cuisinieres-fours", "category": "Cuisinières-Fours", "etat_label": "État Cuisinière"},
+    {"url": "https://www.expat-dakar.com/machines-a-laver", "category": "Machines à laver", "etat_label": "État Machine"}
+]
 
-    df = pd.DataFrame(listings_data)
-    if not df.empty:
-        os.makedirs(os.path.dirname(csv_filename), exist_ok=True)
-        df.to_csv(csv_filename, index=False, encoding='utf-8-sig')  # utf-8-sig pour Excel
-    return df
+# Sélecteurs CSS communs
+selectors = {
+    "details": "div.listing-card__header__title",
+    "etat": "span.listing-card__header__tags__item",
+    "adresse": "div.listing-card__header__location",
+    "prix": "span.listing-card__price__value",
+    "image_lien": "img.listing-card__image__resource"
+}
+
+# Liste pour stocker toutes les données
+all_data = []
+
+# Fonction pour nettoyer le texte
+def clean_text(text):
+    return ' '.join(text.split()) if text else ''
+
+# Fonction pour scraper une page
+def scraper_categorie(url, category, etat_label, page_num):
+    try:
+        response = requests.get(f"{url}?page={page_num}", timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Trouver toutes les cartes de produits
+        listings = soup.select("div.listing-card")
+        
+        for listing in listings:
+            # Extraction des données avec gestion des erreurs
+            details = clean_text(listing.select_one(selectors["details"]).get_text(strip=True) if listing.select_one(selectors["details"]) else '')
+            etat = clean_text(listing.select_one(selectors["etat"]).get_text(strip=True) if listing.select_one(selectors["etat"]) else '')
+            adresse = clean_text(listing.select_one(selectors["adresse"]).get_text(strip=True) if listing.select_one(selectors["adresse"]) else '')
+            prix = clean_text(listing.select_one(selectors["prix"]).get_text(strip=True) if listing.select_one(selectors["prix"]) else '')
+            image_lien = urljoin(url, listing.select_one(selectors["image_lien"])['src'] if listing.select_one(selectors["image_lien"]) and 'src' in listing.select_one(selectors["image_lien"]).attrs else '')
+            
+            # Ajouter les données à la liste
+            all_data.append({
+                "Catégorie": category,
+                "Détails": details,
+                etat_label: etat,
+                "Adresse": adresse,
+                "Prix": prix,
+                "Image_Lien": image_lien
+            })
+        
+        # Vérifier s'il y a une page suivante
+        next_page = soup.select_one("a[rel='next']")
+        return bool(next_page)
+    
+    except requests.RequestException as e:
+        print(f"Erreur lors de la requête pour {url}?page={page_num}: {e}")
+        return False
+
+# Parcourir chaque URL
+for item in urls:
+    url = item["url"]
+    category = item["category"]
+    etat_label = item["etat_label"]
+    page_num = 1
+    
+    print(f"Scraping {category}...")
+    while True:
+        has_next = scraper_categorie(url, category, etat_label, page_num)
+        print(f"Page {page_num} scraped for {category}")
+        page_num += 1
+        if not has_next:
+            break
+        time.sleep(2)  # Pause pour éviter de surcharger le serveur
+    
+    # Sauvegarder les données après chaque catégorie
+    if all_data:
+        df = pd.DataFrame(all_data)
+        df.to_csv(f"{category.lower().replace(' ', '_')}_data.csv", index=False, encoding='utf-8')
+        print(f"Données sauvegardées pour {category} dans {category.lower().replace(' ', '_')}_data.csv")
+
+# Sauvegarder toutes les données dans un fichier final
+if all_data:
+    final_df = pd.DataFrame(all_data)
+    final_df.to_csv("all_products_data.csv", index=False, encoding='utf-8')
+    print("Toutes les données ont été sauvegardées dans all_products_data.csv")
