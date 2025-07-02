@@ -31,7 +31,7 @@ def clean_text(text):
     return ' '.join(text.split()) if text else ''
 
 # Fonction pour scraper une page
-def scraper_categorie(url, category, etat_label, page_num):
+def scrape_category(url, category, etat_label, page_num):
     try:
         response = requests.get(f"{url}?page={page_num}", timeout=10)
         response.raise_for_status()
@@ -75,7 +75,7 @@ for item in urls:
     
     print(f"Scraping {category}...")
     while True:
-        has_next = scraper_categorie(url, category, etat_label, page_num)
+        has_next = scrape_category(url, category, etat_label, page_num)
         print(f"Page {page_num} scraped for {category}")
         page_num += 1
         if not has_next:
