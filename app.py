@@ -212,7 +212,7 @@ if menu == "🔄 Scraper avec Selenium":
 
                 filename_base = slugify(category)
                 csv_filename = f"{filename_base}_{nb_pages}-pages_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
-                scraping_dir = os.path.join(os.path.dirname(__file__), "scraping")
+                scraping_dir = os.path.abspath("scraping")
                 os.makedirs(scraping_dir, exist_ok=True)
                 file_path = os.path.join(scraping_dir, csv_filename)
 
