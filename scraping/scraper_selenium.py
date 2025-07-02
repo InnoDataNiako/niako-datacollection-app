@@ -32,11 +32,15 @@ def clean_text(text):
 
 # Fonction pour scraper une page
 def scrape_category(url, category, etat_label, page_num):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+    }
+    
     try:
-        response = requests.get(f"{url}?page={page_num}", timeout=10)
+        response = requests.get(f"{url}?page={page_num}", headers=headers, timeout=10)
         response.raise_for_status()
         soup = BeautifulSoup(response.content, 'html.parser')
-        
+                
         # Trouver toutes les cartes de produits
         listings = soup.select("div.listing-card")
         
