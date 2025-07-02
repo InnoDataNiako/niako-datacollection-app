@@ -203,22 +203,14 @@ if menu == "🔄 Scraper avec Selenium":
         st.markdown('</div>', unsafe_allow_html=True)
 
     # Partie 9 : Bouton pour lancer le scraping
+    # ... Partie 9 : Bouton pour lancer le scraping ...
     if st.button("🚀 Lancer le scraping", key="scrape_button"):
         with st.spinner("🔄 Scraping en cours... Cette opération peut prendre quelques minutes."):
             try:
-                def slugify(text):
-                    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
-                    return text.lower().replace(" ", "_").replace("&", "et")
-
-                filename_base = slugify(category)
-                csv_filename = f"{filename_base}_{nb_pages}-pages_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
-                scraping_dir = os.path.abspath("scraping")
-                os.makedirs(scraping_dir, exist_ok=True)
-                file_path = os.path.join(scraping_dir, csv_filename)
-
-                config = categories[category]
-                df = scrape_category(config["url"], file_path, config["column_map"], max_pages=nb_pages)
-
+                # Appel de la fonction de scraping
+                url = categories[category]["url"]
+                column_map = categories[category]["column_map"]
+                df, file_path, csv_filename = scrape_category(url, nb_pages, column_map)
                 if df.empty:
                     st.error("Aucune donnée n'a été extraite. Vérifiez la page ou réessayez avec un autre nombre de pages.")
                 else:
@@ -229,15 +221,12 @@ if menu == "🔄 Scraper avec Selenium":
                     st.session_state.csv_filename = csv_filename
                     st.session_state.category = category
                     st.session_state.nb_pages = nb_pages
-
-                    # Force le rechargement pour afficher les résultats
                     st.rerun()
-
             except Exception as e:
                 st.error(f"❌ Une erreur s'est produite lors du scraping : {str(e)}")
 
-    # Affichage des résultats après le scraping réussi
-    if st.session_state.scraping_done and st.session_state.df is not None:
+    # === Affichage des résultats après le scraping ===
+    if st.session_state.get("scraping_done") and st.session_state.df is not None:
         st.markdown(f"""
         <div class="scraping-card stSuccess">
             <div class="section-title">✅ Scraping terminé avec succès</div>
@@ -255,7 +244,7 @@ if menu == "🔄 Scraper avec Selenium":
                 file_name=st.session_state.csv_filename,
                 mime="text/csv",
                 key="download_csv"
-            )
+            )   
 # Partie 10 : si le menu sélectionné est "Télécharger WebScraper (.xlsx)"
 elif menu == "📥 Télécharger WebScraper (.xlsx)":
     st.markdown("""
