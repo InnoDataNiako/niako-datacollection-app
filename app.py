@@ -73,7 +73,6 @@ elif menu == "📥 Télécharger WebScraper":
     st.markdown("""
     <div class="download-card">
         <div class="download-header">
-            <div class="download-icon">📥</div>
             <h2 class="download-title">Télécharger les données WebScraper</h2>
         </div>
         <p style="color: #6b7280; margin-bottom: 20px;">
@@ -199,7 +198,7 @@ if menu == "🔄 Scraper les données":
                     """, unsafe_allow_html=True)
 
 # Partie 10 : si le menu sélectionné est "Télécharger WebScraper "
-elif menu == "📥 Télécharger WebScraper ":
+elif menu == "📥 Télécharger WebScraper":
     st.markdown("""
     <style>
         .download-card {
