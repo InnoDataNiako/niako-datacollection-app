@@ -170,8 +170,6 @@ if menu == "🔄 Scraper les données":
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # ... (le reste du code reste identique jusqu'au bouton de téléchargement)
-
                         with open(file_path, "rb") as file:
                             if st.download_button(
                                 label=f"📥 Télécharger {csv_filename}",
@@ -486,7 +484,6 @@ elif menu == "📊 Dashboard Données Nettoyées":
     # Chargement des données nettoyées pour chaque catégorie
     for category, filename in fichiers_clean.items():
         filepath = os.path.join("webscraper_data", filename)
-        # ...existing code...
         if os.path.exists(filepath):
             df = pd.read_csv(filepath)
             # Nettoyage du prix pour garantir le format numérique
@@ -501,7 +498,6 @@ elif menu == "📊 Dashboard Données Nettoyées":
             df["Catégorie"] = category
             config = category_config[category]
 
-           # ...existing code...
             for feature_name, regex_pattern in config["features"].items():
                 df[feature_name] = df[config["type"]].astype(str).str.extract(regex_pattern, flags=re.IGNORECASE)[0]
            
@@ -563,7 +559,6 @@ elif menu == "📊 Dashboard Données Nettoyées":
                     </div>
                 """, unsafe_allow_html=True)
                 
-               # ...existing code...
             fig_cat_dist = px.pie(
                 combined_df,
                 names='Catégorie',
@@ -951,7 +946,7 @@ elif menu == "📝 Formulaire d'évaluation":
             st.markdown('<span class="form-label">Téléphone (optionnel)</span>', unsafe_allow_html=True)
             telephone = st.text_input(
                 label="Téléphone",
-                placeholder="+221 77 777 77 77",
+                placeholder="+221 77 077 70 77",
                 key="tel",
                 label_visibility="collapsed"
             )
