@@ -1,130 +1,142 @@
 import pandas as pd
 import re
+import seaborn as sns
+import matplotlib.pyplot as plt
 import os
-import unicodedata
 import urllib.parse
+import unicodedata
 
-def nettoyer_dataframe(df, titre_col, etat_col, adresse_col, prix_col):
+# 🔹 Fonction de nettoyage principale
+def nettoyer_dataframe(df, col_type, col_adresse, col_prix):
     df = df.copy()
 
-    # Fonction pour nettoyer les titres (suppression de caractères indésirables)
-    def clean_text(text):
-        text = urllib.parse.unquote_plus(str(text))
-        # Normalisation Unicode pour gérer les accents
-        text = unicodedata.normalize('NFKD', text).encode('ASCII', 'ignore').decode('ASCII')  # Supprime les accents
-        # Ou utiliser 'NFC' pour préserver les accents
-        text = ''.join(c for c in text if c.isprintable() and not unicodedata.category(c).startswith('So'))
-        text = re.sub(r'[\\\"\']', '', text)
-        text = re.sub(r'\s+', ' ', text).strip()
-        return text
+    # Nettoyage des colonnes textuelles (type & adresse)
+    for col in [col_type, col_adresse]:
+        df[col] = df[col].astype(str).apply(urllib.parse.unquote_plus)
+        df[col] = df[col].apply(lambda x: ''.join(
+            c for c in x if c.isprintable() and not unicodedata.category(c).startswith('So')
+        ))
+        df[col] = df[col].str.replace(r"[\"\'\\]", "", regex=True)
+        df[col] = df[col].str.strip().str.replace(r"\s+", " ", regex=True)
 
-    # Nettoyage des titres
-    df[titre_col] = df[titre_col].apply(clean_text)
-
-    # Nettoyage des états (idem que tu avais)
-    def map_condition(cond):
-        cond = str(cond).lower()
-        if "neuf" in cond:
-            return "Neuf"
-        elif "occasion" in cond:
-            return "Occasion"
-        elif "reconditionné" in cond:
-            return "Reconditionné"
-        elif "venant" in cond:
-            return "Venant"
-        return "Inconnu"
-    df[etat_col] = df[etat_col].apply(map_condition)
-
-    # Nettoyage spécifique des adresses : enlever les balises svg html et garder le texte
-    def clean_adresse(adresse):
-        adresse = str(adresse)
-        # Supprimer tout ce qui est entre <svg ...>...</svg> (balise et contenu)
-        adresse = re.sub(r'<svg.*?</svg>', '', adresse, flags=re.DOTALL)
-        # Supprimer tout autre tag HTML s’il en reste (optionnel)
-        adresse = re.sub(r'<.*?>', '', adresse)
-        # Nettoyer les espaces en trop
-        adresse = re.sub(r'\s+', ' ', adresse).strip()
-        return adresse
-
-    df[adresse_col] = df[adresse_col].apply(clean_adresse)
-
-    # Nettoyage des prix (comme avant)
+    # Nettoyage du prix
     def clean_price(price):
         try:
-            return int(re.sub(r"[^\d]", "", str(price)))
+            numeric_value = float(str(price).replace(" ", "").replace(",", ".").replace("CFA", ""))
+            return int(numeric_value)
         except:
             return None
-    df[prix_col] = df[prix_col].apply(clean_price)
+
+    df[col_prix] = df[col_prix].astype(str).apply(clean_price)
+    df[col_prix] = df[col_prix].astype("Int64")  # Nullable integers
 
     return df
 
+# 🔹 Traitement d'un seul fichier
+def traitement_complet(nom_fichier, columns_map):
+    print(f"\n➡️ Traitement de : {nom_fichier}")
+    df = pd.read_csv(nom_fichier)
 
-def traitement_webscraper(nom_fichier, colonnes):
-    print(f"\n📥 Traitement de : {nom_fichier}")
-    df = pd.read_excel(nom_fichier)
+    # Garder uniquement les 4 colonnes
+    df = df[list(columns_map.values())]
 
-    df = nettoyer_dataframe(df, colonnes["V1"], colonnes["V2"], colonnes["V3"], colonnes["V4"])
+    col_type = columns_map["V1"]
+    col_adresse = columns_map["V3"]
+    col_prix = columns_map["V2"]
 
-   # Supprimer toutes les lignes avec valeurs manquantes dans au moins une colonne essentielle
-    df = df.dropna(subset=[
-        colonnes["V1"],  # titre
-        colonnes["V2"],  # état
-        colonnes["V3"],  # adresse
-        colonnes["V4"]   # prix
-    ])
+    df = nettoyer_dataframe(df, col_type, col_adresse, col_prix)
 
-    # Supprimer les doublons exacts
+    # Suppression des lignes vides
+    df = df.dropna(subset=[col_type])
+    median_price = df[col_prix].median()
+    df[col_prix] = df[col_prix].fillna(median_price)
+
     df = df.drop_duplicates()
 
-    # Supprimer aussi les doublons sur le titre + prix + adresse (s'il y a des copies)
-    df = df.drop_duplicates(subset=[colonnes["V1"], colonnes["V3"], colonnes["V4"]])
+    # Suppression des outliers
+    Q1 = df[col_prix].quantile(0.25)
+    Q3 = df[col_prix].quantile(0.75)
+    IQR = Q3 - Q1
+    low = Q1 - 1.5 * IQR
+    high = Q3 + 1.5 * IQR
+    df = df[(df[col_prix] >= low) & (df[col_prix] <= high)]
 
+    # 📊 Visualisation rapide
+    plt.figure(figsize=(14, 5))
+    plt.subplot(1, 2, 1)
+    sns.histplot(df[col_prix], bins=30, kde=True)
+    plt.title("Distribution des prix")
 
-    # Enregistrement dans le même dossier
-    dossier = os.path.dirname(nom_fichier)
-    clean_name = os.path.splitext(os.path.basename(nom_fichier))[0] + "_clean.csv"
-    save_path = os.path.join(dossier, clean_name)
-    df.to_csv(save_path, index=False, encoding="utf-8")
-    print(f"✅ Enregistré : {save_path}")
+    plt.subplot(1, 2, 2)
+    sns.countplot(y=df[col_adresse].value_counts().head(10).index)
+    plt.title("Top 10 zones")
 
+    plt.tight_layout()
+    plt.savefig(nom_fichier.replace(".csv", "_visualisation.png"))
+    plt.close()
 
+    # ✅ Export
+    nom_nettoye = nom_fichier.replace(".csv", "_clean.csv")
+    df[col_prix] = df[col_prix].apply(lambda x: f"{x:,}".replace(",", " ") if pd.notnull(x) else x)
+    df.to_csv(nom_nettoye, index=False, encoding="utf-8")
+    print(f"✅ Données nettoyées enregistrées : {nom_nettoye}")
+
+# 🔹 Menu terminal
 def main():
-    dossier = os.path.dirname(os.path.abspath(__file__))  # dossier actuel du script
+    print("""
+🎯 MENU DE NETTOYAGE CoinAfrique :
+1. Vêtements Homme
+2. Chaussures Homme
+3. Vêtements Enfants
+4. Chaussures Enfants
+""")
 
-    fichiers = {
-        "ExpatDakarFrigos.xlsx": {
-            "V1": "V1_détails",
-            "V2": "V2_etat_frigo_cong",
-            "V3": "V3_adresse",
-            "V4": "V4_prix"
+    choix = input("Entrez votre choix (1 à 4) : ").strip()
+
+    mapping = {
+        "1": {
+            "fichier": "coinafrique-vetements-homme.csv",
+            "columns": {
+                "V1": "V1_type_habits",
+                "V2": "V2_prix",
+                "V3": "V3_adresse",
+                "V4": "V4_image_lien-src"
+            }
         },
-        "ExpatDakarClimatisation.xlsx": {
-            "V1": "V1_détails",
-            "V2": "V2_etat_clim",
-            "V3": "V3_adresse",
-            "V4": "V4_prix"
+        "2": {
+            "fichier": "coinafrique-chaussures-homme.csv",
+            "columns": {
+                "V1": "V1_type_chaussures",
+                "V2": "V2_prix",
+                "V3": "V3_adresse",
+                "V4": "V4_image_lien-src"
+            }
         },
-        "ExpatDakarCuisinieresFours.xlsx": {
-            "V1": "V1_détails",
-            "V2": "V2_cuisinieres-fours",
-            "V3": "V3_adresse",
-            "V4": "V4_prix"
+        "3": {
+            "fichier": "coinafrique-vetements-enfants.csv",
+            "columns": {
+                "V1": "V1_type_habits",
+                "V2": "V2_prix",
+                "V3": "V3_adresse",
+                "V4": "V4_image_lien-src"
+            }
         },
-        "ExpatDakarMachinesLaver.xlsx": {
-            "V1": "V1_détails",
-            "V2": "V2_etat_machines_a_laver",
-            "V3": "V3_adresse",
-            "V4": "V4_prix"
+        "4": {
+            "fichier": "coinafrique-chaussures-enfants.csv",  # nom avec faute corrigée ici
+            "columns": {
+                "V1": "V1_type_chaussures",
+                "V2": "V2_prix",
+                "V3": "V3_adresse",
+                "V4": "V4_image_lien-src"
+            }
         }
     }
 
-    for fichier, colonnes in fichiers.items():
-        chemin = os.path.join(dossier, fichier)
-        if os.path.exists(chemin):
-            traitement_webscraper(chemin, colonnes)
-        else:
-            print(f"❌ Fichier introuvable : {fichier}")
+    selection = mapping.get(choix)
+    if selection and os.path.exists(selection["fichier"]):
+        traitement_complet(selection["fichier"], selection["columns"])
+    else:
+        print("⚠️ Fichier introuvable ou choix invalide.")
 
 if __name__ == "__main__":
     main()
-    

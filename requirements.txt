@@ -3,7 +3,5 @@ pandas
 requests
 beautifulsoup4
 openpyxl
-unidecode
 matplotlib
 plotly
-fake_useragent
