@@ -114,3 +114,36 @@ categories = {
         "icon": "👟"
     }
 }
+# ...existing code...
+
+if __name__ == "__main__":
+    print("=== MENU SCRAPING COINAFRIQUE ===")
+    print("Catégories disponibles :")
+    for i, cat in enumerate(categories.keys(), 1):
+        print(f"{i}. {cat}")
+
+    choix = input("Entrez le numéro de la catégorie à scraper : ")
+    try:
+        choix = int(choix)
+        cat_name = list(categories.keys())[choix - 1]
+    except (ValueError, IndexError):
+        print("Numéro invalide.")
+        exit(1)
+
+    max_pages = input("Nombre de pages à scraper (défaut 5) : ")
+    try:
+        max_pages = int(max_pages)
+    except ValueError:
+        max_pages = 5
+
+    config = categories[cat_name]
+    slug = slugify(cat_name)
+    now = datetime.now().strftime("%Y%m%d_%H%M%S")
+    file_path = f"coinafrique_{slug}_{now}.csv"
+
+    print(f"Lancement du scraping pour '{cat_name}' sur {max_pages} pages...")
+    df = scrape_category(config["url"], file_path, config["column_map"], max_pages=max_pages)
+    if not df.empty:
+        print(f"Scraping terminé. Fichier sauvegardé : {file_path}")
+    else:
+        print("Aucune donnée collectée.")

@@ -1,42 +1,38 @@
+# 📊 Streamlit Data Collection - CoinAfrique
 
+Ce projet est une application interactive développée avec **Streamlit** pour scraper, explorer et visualiser des données issues du site **CoinAfrique**.
 
-# 📊 Streamlit Data Collection - Expat Dakar
+## Objectifs du projet
 
-Ce projet est une application interactive développée avec **Streamlit** pour scraper, explorer et visualiser des données 
-
-
-##  Objectifs du projet
-
-- Scraper les données de plusieurs catégories d'annonces (Réfrigérateurs, Climatisations, Fours, Machines à laver) avec **Selenium**.
+- Scraper les données de plusieurs catégories d'annonces (Vêtements Homme, Chaussures Homme, Vêtements Enfants, Chaussures Enfants) avec **BeautifulSoup**.
 - Télécharger des fichiers WebScraper (données non nettoyées).
 - Afficher un dashboard interactif basé sur les données nettoyées.
 - Intégrer un formulaire d’évaluation utilisateur.
 
+## Fonctionnalités de l'app
 
-##  Fonctionnalités de l'app
-
-- 🔄 **Scraping via Selenium** : Sélection de catégorie et nombre de pages à scraper.
+- 🔄 **Scraping via BeautifulSoup** : Sélection de catégorie et nombre de pages à scraper.
 - 📥 **Téléchargement WebScraper** : Données récupérées via l’extension WebScraper.io (non nettoyées).
-- 📊 **Dashboard dynamique** : Visualisation des données nettoyées sous forme de KPI, graphiques, analyses par ville et par marque.
+- 📊 **Dashboard dynamique** : Visualisation des données nettoyées sous forme de KPI, graphiques, analyses par ville et par type.
 - 📝 **Formulaire d’évaluation** : Pour recueillir des retours utilisateurs.
 
-
-##  Technologies utilisées
+## Technologies utilisées
 
 - Python
 - Streamlit
-- Selenium
+- BeautifulSoup
 - Pandas
 - Plotly
 - WebScraper
 - Git/GitHub
 
-
-##  Lancer l'application localement
+## Lancer l'application localement
 
 1. Cloner le dépôt :
+```bash
 git clone https://github.com/InnoDataNiako/first_app_streamlit_datacollection.git
 cd first_app_streamlit_datacollection
+```
 
 2. Installer les dépendances :
 
@@ -52,39 +48,39 @@ streamlit run app.py
 
 ---
 
-##  Déploiement
+## Déploiement
 
 L'application peut être déployée facilement sur **Streamlit Community Cloud** ou tout autre service compatible.
 
-Lien de l'app déployée : *(à insérer après déploiement)*
+Lien de l'app déployée : *https://niako-datacollection-app.streamlit.app/*
 
 ---
 
-##  Structure du projet
+## Structure du projet
 
 ```
-📦 first_app_streamlit_datacollection
+📦 niako-datacollection-app
 │
 ├── app.py                       # Fichier principal Streamlit
-├── scraping/                   # Contient le code de scraping Selenium
-│   └── scraper_selenium.py
-├── webscraper_data/            # Données issues de WebScraper
-├── cleaned_data/               # Données nettoyées
-├── README.md                   # Ce fichier
-└── requirements.txt            # Dépendances Python
+├── scraping/                    # Contient le code de scraping BeautifulSoup
+│   └── scraper_4url_BS.py
+├── webscraper_data/             # Données issues de WebScraper
+├── cleaned_data/                # Données nettoyées
+├── README.md                    # Ce fichier
+└── requirements.txt             # Dépendances Python
 ```
 
 ---
 
-##  Auteur
+## Auteur
 
-**Niako Kebe**
-Étudiante passionnée de data science & développement.
+**Niako Kebe**  
+Étudiante passionnée de data science & développement.  
 📧 Contact : [drivenindata@gmail.com](mailto:drivenindata@gmail.com)
 
 ---
 
-##  Remarques
+## Remarques
 
 * Le scraping peut prendre quelques minutes selon le nombre de pages choisies.
 * Assurez-vous d’avoir une connexion internet pour accéder aux URLs du site.
