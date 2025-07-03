@@ -76,8 +76,7 @@ elif menu == "📥 Télécharger WebScraper":
             <h2 class="download-title">Télécharger les données WebScraper</h2>
         </div>
         <p style="color: #6b7280; margin-bottom: 20px;">
-            Sélectionnez les fichiers CSV à télécharger. Ces fichiers contiennent les données déjà scrapées (non nettoyées).
-        </p>
+Sélectionnez les fichiers CSV à télécharger. Ces fichiers contiennent les données brutes collectées.        </p>
     </div>
     """, unsafe_allow_html=True)
 elif menu == "📊 Dashboard Données Nettoyées":
