@@ -197,4 +197,103 @@ if menu == "🔄 Scraper les données":
                         <code>{str(e)}</code>
                     </div>
                     """, unsafe_allow_html=True)
-    
+
+# Partie 10 : si le menu sélectionné est "Télécharger WebScraper "
+elif menu == "📥 Télécharger WebScraper ":
+    st.markdown("""
+    <style>
+        .download-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border-left: 4px solid #4f46e5;
+        }
+        .download-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+        }
+        .download-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .download-icon {
+            font-size: 24px;
+            margin-right: 12px;
+            color: #4f46e5;
+        }
+        .download-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #111827;
+            margin: 0;
+        }
+        .download-btn {
+            background-color: #4f46e5 !important;
+            color: white !important;
+            border-radius: 8px !important;
+            padding: 8px 16px !important;
+            font-weight: 500 !important;
+            border: none !important;
+        }
+        .download-btn:hover {
+            background-color: #4338ca !important;
+        }
+        .warning-card {
+            background: #fff3f3;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Partie 11 : Affichage des fichiers disponibles pour téléchargement
+    dossier_csv = "webscraper_data"
+    fichiers = {
+        "👔 Vêtements Homme": "coinafrique-vetements-homme.csv",
+        "👟 Chaussures Homme": "coinafrique-chaussures-homme.csv",
+        "👕 Vêtements Enfants": "coinafrique-vetements-enfants.csv",
+        "👟 Chaussures Enfants": "coinafrique-chaussures-enfants.csv"
+    }
+# Partie 12 : Vérification de l'existence des fichiers et affichage des boutons de téléchargement
+    for nom, fichier in fichiers.items():
+        chemin = os.path.join(dossier_csv, fichier)
+        if os.path.exists(chemin):
+            with st.container():
+                st.markdown(f"""
+                <div class="download-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h3 style="margin: 0 0 5px 0; color: #1f2937;">{nom.split()[1]}</h3>
+                            <p style="margin: 0; color: #6b7280; font-size: 14px;">{fichier}</p>
+                        </div>
+                """, unsafe_allow_html=True)
+                
+                with open(chemin, "rb") as f:
+                    st.download_button(
+                        label=f"Télécharger",
+                        data=f,
+                        file_name=fichier,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"dl_{fichier}",
+                        help=f"Télécharger le fichier {fichier}"
+                    )
+                
+                st.markdown("</div></div>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="warning-card">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 20px;">⚠️</span>
+                    <div>
+                        <strong style="color: #ef4444;">Fichier manquant</strong>
+                        <p style="margin: 5px 0 0 0; color: #6b7280;">{fichier} n'a pas été trouvé dans le dossier {dossier_csv}</p>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
